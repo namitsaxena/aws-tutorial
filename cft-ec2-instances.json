@@ -21,6 +21,15 @@
             }]
          }
       },
+      "SecurityGroupAcccessWithin": {
+      "Type": "AWS::EC2::SecurityGroupIngress",
+      "DependsOn": "NSSecurityGroup",
+         "Properties": {
+           "GroupId": { "Ref": "NSSecurityGroup" },
+           "IpProtocol": "-1",
+           "SourceSecurityGroupId": { "Ref": "NSSecurityGroup" }
+         }
+      },      
       "ec2MainInstance" : {
          "Type" : "AWS::EC2::Instance",
          "Properties" : {
