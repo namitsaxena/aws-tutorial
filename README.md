@@ -38,5 +38,51 @@
   * Terminate
     * `aws ec2 terminate-instances --instance-ids i-02fa4edd843531814`
 
+#### Security Group
+* aws ec2 describe-security-groups --group-names default
+* Default Security Group
+  * Allows all inbound traffic from other instances associated with the default security group. Rule:
+    * | Inbound     | [sg-d10024a7](any)         | (Where sg-d10024a7 is the id of the default SG itself)
+      * Allows all outbound traffic
+      * So by default no ssh access will be allowed
+* Creating a Security Group to allow SSH access (you can also modify/add a rule to the default)
+  * Easiest is to add a rule to the default security group. 
+  * Security groups are associated with network interfaces. After you launch an instance into a VPC, you can change the security groups that are associated with the instance. You can change the security groups for an instance when the instance is in the running or stopped state
+  * Describe instances will show the security group associated with it (under network interfaces)
+    * [AWS - Changing Group Membership](https://docs.aws.amazon.com/vpc/latest/userguide/VPC_SecurityGroups.html#SG_Changing_Group_Membership)
+      * As such just creating a new SG within a VPC is not sufficient
+      * [Create, Configure, and Delete Security Groups for Amazon EC2](https://docs.aws.amazon.com/cli/latest/userguide/cli-services-ec2-sg.html)
+        * `aws ec2 create-security-group --group-name MySecurityGroup --description "NS Security Group to allow ssh access" --vpc-id vpc-7547d30e`
+          * Get VPC id from the default VPC or default security group 
+          * Adding a rule to allow inbound SSH access
+            * Get your IP address: curl https://checkip.amazonaws.com
+            * `aws ec2 authorize-security-group-ingress --group-id sg-07916e35cfe25dce6 --protocol tcp --port 22 --cidr 73.210.107.5/24`
+              * CIDR /24 specified a range(last 8 bits can be anything), /32 would have been only that ip address
+              * Adding rule to my security group did not work. Had to be added to ‘default’ security group
+      * `ssh -i ./admin_key_pair.pem ec2-user@ec2-35-175-228-166.compute-1.amazonaws.com`
+        * with user ‘admin’ - did NOT work: Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+        * with root: Please login as the user "ec2-user" rather than the user "root".
+        * [Troubleshoot Connecting to EC2 Linux Instance Through SSH](https://aws.amazon.com/premiumsupport/knowledge-center/ec2-linux-ssh-troubleshooting/)
+        * [Why are there separate security groups for vpc and ec2 on AWS? - Quora](https://www.quora.com/Why-are-there-separate-security-groups-for-vpc-and-ec2-on-AWS)
+* Start a Web Server on one of the Instances
+  * [What is Amazon Elastic Load Balancer (ELB) – Hacker Noon](https://hackernoon.com/what-is-amazon-elastic-load-balancer-elb-16cdcedbd485)
+  ```bash
+	sudo yum update -y
+	sudo yum install -y httpd
+	sudo service httpd start
+	sudo chkconfig httpd on
+	cd /var/www/html
+	sudo su
+	echo "This is the Main Website" > index.html
+  ```	
+  * You will need to open all ports or at least 80 from your ip
+  ```bash
+	curl 54.198.41.180:80
+    This is the Main Website
+  ```    
+* List Instances
+  * `aws ec2 describe-instances --filter "Name=instance-state-name,Values=running"`
+
+
 
 
