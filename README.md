@@ -12,6 +12,12 @@
 * aws s3api list-buckets
 * `aws s3api list-buckets --query "Buckets[].Name"`
 
+#### Cloudformation
+* Validate: `aws cloudformation validate-template --template-body file://cft-iam-1.json`
+* Create: ` aws cloudformation create-stack --stack-name ns-ec2-instances --template-body file://cft-ec2-instances.json`
+* Check Status: `aws cloudformation describe-stacks --stack-name ns-ec2-instances`
+* Delete: `aws cloudformation delete-stack --stack-name ns-ec2-instances`
+
 #### EC2
 * Create a key pair: The command below will create a keypair, and the private key will be displayed/saved locally in PEM format (the public key will be in AWS)
   * `aws ec2 create-key-pair --key-name admin_key_pair --query 'KeyMaterial' --output text > admin_key_pair.pem`
