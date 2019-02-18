@@ -1,0 +1,41 @@
+{
+    "Resources": 
+    {
+        "administrators": 
+        {
+            "Type": "AWS::IAM::Group",
+            "Properties": {
+                 "ManagedPolicyArns": [ "arn:aws:iam::aws:policy/AdministratorAccess" ]
+            }
+
+        }
+       ,
+       "admin": {
+            "Type": "AWS::IAM::User",
+            "Properties": 
+            {
+                "Groups": [ { "Ref" : "administrators" } ]
+            }
+        }
+       ,"BillingReadOnlyPolicy": {
+           "Type" : "AWS::IAM::Policy",
+           "Properties" : {
+              "PolicyName" : "BillingPolicyReadOnly",
+              "PolicyDocument" : {
+                 "Version" : "2012-10-17",
+                 "Statement": [ {
+                "Sid": "VisualEditor0",
+                 "Effect"   : "Allow",
+                 "Action"   : [
+                    "aws-portal:ViewAccount",
+                    "aws-portal:ViewBilling",
+                    "aws-portal:ViewUsage"
+                 ],
+                 "Resource" : "*"
+                 } ]
+              },
+              "Groups" : [ { "Ref" : "administrators" } ]
+            }
+        }    
+   }
+}

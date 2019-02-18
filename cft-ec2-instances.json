@@ -1,0 +1,43 @@
+{
+   "AWSTemplateFormatVersion" : "2010-09-09",
+   "Description" : "EC2 Instances, with custom security group, with previously generated keypair(VPC id is hardcoded)",
+   "Resources" : {
+     "NSSecurityGroup" : {
+         "Type" : "AWS::EC2::SecurityGroup",
+         "Properties" : {
+            "GroupDescription" : "Allow All/SSH from my computer",
+            "VpcId" : "vpc-7547d30e",
+            "SecurityGroupIngress" : [
+               {
+                  "IpProtocol" : "tcp",
+                  "FromPort" : "0",
+                  "ToPort" : "65535",               
+                  "CidrIp" : "73.210.107.0/24"
+               }
+            ],
+            "SecurityGroupEgress" : [{
+               "IpProtocol" : "-1",
+               "CidrIp" : "0.0.0.0/0"
+            }]
+         }
+      },
+      "ec2MainInstance" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "ImageId" : "ami-035be7bafff33b6b6",
+            "InstanceType" : "t2.micro",
+            "KeyName" : "admin_key_pair",
+            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ]
+         }
+      },
+      "ec2SecondaryInstance" : {
+         "Type" : "AWS::EC2::Instance",
+         "Properties" : {
+            "ImageId" : "ami-035be7bafff33b6b6",
+            "InstanceType" : "t2.micro",
+            "KeyName" : "admin_key_pair",
+            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ]
+         }
+      }
+   }       
+}     
