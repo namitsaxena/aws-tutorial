@@ -1,6 +1,19 @@
 {
    "AWSTemplateFormatVersion" : "2010-09-09",
    "Description" : "EC2 Instances, with custom security group, with previously generated keypair(VPC id is hardcoded)",
+    "Parameters" : {
+      "RegionParameter" : {
+        "Type" : "String",
+        "Default" : "us-east-1",
+        "Description" : "Enter the region. Examples: us-east-1, us-west-2"
+      },
+      "AvailabilityZoneTypeParameter" : {
+        "Type" : "String",
+        "Default" : "a",
+        "AllowedValues" : ["a", "b", "c", "d", "e", "f"],
+        "Description" : "Enter the letter corresponding to availability zone. Example for us-east-1a, enter 'a' "
+      }
+    },       
    "Resources" : {
      "NSSecurityGroup" : {
          "Type" : "AWS::EC2::SecurityGroup",
@@ -36,7 +49,8 @@
             "ImageId" : "ami-035be7bafff33b6b6",
             "InstanceType" : "t2.micro",
             "KeyName" : "admin_key_pair",
-            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ]
+            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
+            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "RegionParameter" }, { "Ref" : "AvailabilityZoneTypeParameter" } ] ] } 
          }
       },
       "ec2SecondaryInstance" : {
@@ -45,7 +59,8 @@
             "ImageId" : "ami-035be7bafff33b6b6",
             "InstanceType" : "t2.micro",
             "KeyName" : "admin_key_pair",
-            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ]
+            "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
+            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "RegionParameter" }, { "Ref" : "AvailabilityZoneTypeParameter" } ] ] } 
          }
       }
    }       

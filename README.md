@@ -13,8 +13,9 @@
 * `aws s3api list-buckets --query "Buckets[].Name"`
 
 #### Cloudformation
-* Validate: `aws cloudformation validate-template --template-body file://cft-iam-1.json`
+* Validate: `aws cloudformation validate-template --template-body file://cft-ec2-instances.json`
 * Create: ` aws cloudformation create-stack --stack-name ns-ec2-instances --template-body file://cft-ec2-instances.json`
+* Check status and wait for completion: `aws cloudformation wait stack-create-complete --stack-name ns-ec2-instances`
 * Check Status: `aws cloudformation describe-stacks --stack-name ns-ec2-instances`
 * Delete: `aws cloudformation delete-stack --stack-name ns-ec2-instances`
 
