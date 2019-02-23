@@ -15,9 +15,10 @@
 #### Cloudformation
 * Validate: `aws cloudformation validate-template --template-body file://cft-ec2-instances.json`
 * Create: ` aws cloudformation create-stack --stack-name ns-ec2-instances --template-body file://cft-ec2-instances.json`
-* Check status and wait for completion: `aws cloudformation wait stack-create-complete --stack-name ns-ec2-instances`
+  * wait: `aws cloudformation wait stack-create-complete --stack-name ns-ec2-instances`
 * Check Status: `aws cloudformation describe-stacks --stack-name ns-ec2-instances`
 * Delete: `aws cloudformation delete-stack --stack-name ns-ec2-instances`
+  * wait: `aws cloudformation wait stack-delete-complete --stack-name ns-ec2-instances`
 
 #### EC2
 * Create a key pair: The command below will create a keypair, and the private key will be displayed/saved locally in PEM format (the public key will be in AWS)
@@ -89,6 +90,27 @@
   ```    
 * List Instances
   * `aws ec2 describe-instances --filter "Name=instance-state-name,Values=running"`
+
+#### ELB: [Tutorial: Create an Application Load Balancer Using the AWS CLI](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/tutorial-application-load-balancer-cli.html)
+* Create Application Load Balancer
+  * Create: `aws elbv2 create-load-balancer --name ns-load-balancer --subnets subnet-c97e47e6 subnet-c8dc1f82 --security-groups sg-d10024a7`
+    * use subnets from 1a and 1b availability zones since that's where our instances are, and the default security groups
+  * describe: `aws elbv2 describe-load-balancers --names my-load-balancer`
+  * delete: aws elbv2 delete-load-balancer --load-balancer-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:loadbalancer/app/NSAppLoadBalancer/4211fa60f5a5ccbd
+* Create target groups
+  * `aws elbv2 create-target-group --name ns-targets --protocol HTTP --port 80 --vpc-id vpc-7547d30e`
+  * `aws elbv2 delete-target-group --target-group-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1`
+* Register target groups to the load balancer
+  * `aws elbv2 register-targets --target-group-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1 --targets Id=i-0ed67089ee018a6cc Id=i-0f21609d0e3c41c7b`
+* Create Listener
+  * `aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:loadbalancer/app/ns-load-balancer/d73bedeba943a2ae --protocol HTTP --port 80  --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1`  
+* Check Health
+  `aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1` 
+
+
+
+
+
 
 
 
