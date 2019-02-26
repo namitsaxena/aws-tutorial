@@ -106,6 +106,10 @@
   * `aws elbv2 create-listener --load-balancer-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:loadbalancer/app/ns-load-balancer/d73bedeba943a2ae --protocol HTTP --port 80  --default-actions Type=forward,TargetGroupArn=arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1`  
 * Check Health
   `aws elbv2 describe-target-health --target-group-arn arn:aws:elasticloadbalancing:us-east-1:304958422732:targetgroup/ns-targets/b6116ccdfa8b03f1` 
+* Get Loadbalancer details
+  * `aws elbv2 describe-load-balancers`
+  * `aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text`
+
 
 
 

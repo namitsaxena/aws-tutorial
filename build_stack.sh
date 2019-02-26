@@ -69,3 +69,22 @@ ssh -i ${vKeyFile} ec2-user@${vBox2} -o "StrictHostKeyChecking no" << EOF
   echo "This is the Secondary Website" > index.html
 EOF
 
+# check 
+vBoxText1=$(curl ${vBox1} 2> /dev/null)
+vBoxText2=$(curl ${vBox2} 2> /dev/null)
+
+echo "${vBox1} --> ${vBoxText1}"
+echo "${vBox2} --> ${vBoxText2}"
+
+# get the first loadbalancers public DNS name (assumes only one load balanacer is running)
+vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text)
+echo "ELB output...(will vary between website 1 and 2)"
+for i in {1..10} ; do
+	vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
+	echo "${vLoadBalancerDNSName} --> ${vELBText}"
+	if [[ "${vELBText}" != "${vBoxText1}" && "${vELBText}" != "${vBoxText2}" ]] ; then
+		echo "Unexpected text found. Doesn't match either of the boxes"
+	fi
+done
+
+

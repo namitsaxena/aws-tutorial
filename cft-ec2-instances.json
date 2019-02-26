@@ -1,6 +1,6 @@
 {
    "AWSTemplateFormatVersion" : "2010-09-09",
-   "Description" : "EC2 Instances in 2 AZ, with custom security group, and previously generated keypair(VPC id is still hardcoded)",
+   "Description" : "EC2 Instances in 2 AZ, with custom security group, app load balancer, and previously generated keypair(VPC id is still hardcoded)",
    "Mappings" : {
         "RegionMap" : {
           "us-east-1" : { "AMI" : "ami-035be7bafff33b6b6"}
@@ -29,7 +29,18 @@
         "Default" : "b",
         "AllowedValues" : ["a", "b", "c", "d", "e", "f"],
         "Description" : "Enter the letter corresponding to availability zone. Example for us-east-1a, enter 'a' "
+      },
+      "SubnetParameter1" : {
+        "Type" : "String",
+        "Default" : "subnet-c97e47e6",
+        "Description" : "subnet id corresponding to availability zone 'a'. "
+      },
+      "SubnetParameter2" : {
+        "Type" : "String",
+        "Default" : "subnet-c8dc1f82",
+        "Description" : "subnet id corresponding to availability zone 'b'. "
       }
+
     },       
    "Resources" : {
      "NSSecurityGroup" : {
@@ -79,6 +90,39 @@
             "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
             "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] } 
          }
-      }
-   }       
+      },
+      
+      "appLoadbalancer" : {
+        "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+        "Properties" : {
+          "SecurityGroups" : [ { "Ref": "NSSecurityGroup" } ],
+          "Subnets" : [ { "Ref" : "SubnetParameter1" }, { "Ref" : "SubnetParameter2" }  ],
+          "Tags" : [ { "Key" : "project", "Value" : "ns" } ]
+        }
+     },
+     "appTargetGroup" : {
+        "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+        "Properties" : {
+          "Name" : "targetGroup1-main",
+          "Port" : 80,
+          "Protocol" : "HTTP",
+          "Targets": [
+              { "Id": {"Ref" : "ec2Instance1"}, "Port": 80 },
+              { "Id": {"Ref" : "ec2Instance2"}, "Port": 80 }
+          ],          
+          "Tags" : [ { "Key" : "project", "Value" : "ns" }],
+          "VpcId" : { "Ref" : "VPCIdParameter" }
+        }
+     },
+     "appListener" : {
+        "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+        "Properties" : {
+          "DefaultActions" : [ { "Type": "forward", "TargetGroupArn": { "Ref": "appTargetGroup" }  }],
+          "LoadBalancerArn" : { "Ref": "appLoadbalancer" },
+          "Port" : 80,
+          "Protocol" : "HTTP"
+        }
+     }
+
+   }
 }     
