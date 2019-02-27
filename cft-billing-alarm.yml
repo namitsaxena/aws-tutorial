@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: 'Billing Alerts for AWS Account'
+# usage
+# aws cloudformation create-stack --stack-name ns-billing-stack --template-body file://cft-billing-alarm.yml --parameters  ParameterKey=EmailAddress,ParameterValue=your.email@gmail.com
+# aws cloudformation wait stack-create-complete --stack-name ns-billing-stack
+
+Parameters:
+
+  EmailAddress:
+    Type: String
+    Description: "Enter email address for billing alerts"
+    AllowedPattern: ^[_A-Za-z0-9-\+]+(\.[_A-Za-z0-9-]+)*@[A-Za-z0-9-]+(\.[A-Za-z0-9]+)*(\.[A-Za-z]{2,})$
+
+Resources:
+
+  BillingAlertTwoDollars:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: BillingAlertTopic
+    Properties:
+      AlarmActions:
+        - !Ref BillingAlertTopic
+      AlarmDescription: "Account Billing Alert for $2.00"
+      AlarmName: "Billing Alert - Estimated Bill Exceeds $2"
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: Currency
+          Value: USD
+      EvaluationPeriods: 1
+      MetricName: EstimatedCharges
+      Namespace: AWS/Billing
+      Period: 21600
+      Statistic: Maximum
+      Threshold: 2
+
+  BillingAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "Billing-Alerts"
+      Subscription:
+      - Endpoint: !Ref EmailAddress
+        Protocol: email

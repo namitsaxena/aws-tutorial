@@ -6,10 +6,11 @@
 # else creates a new one
 ##########################################
 
-# Fail on any error
-set -e
+vStackName="ns-ec2-instances"
 
-vExistingStacks=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE --query StackSummaries[*].StackName --output text)
+vExistingStacks=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE --query StackSummaries[*].StackName --output text | tr "\t+" "\n" | grep ${vStackName})
+set -e # Fail on any error, from this point onwards (fails on grep above if not found)
+
 for stack in ${vExistingStacks} ; do
 	echo "Deleting Existing Stack: ${stack}"
 	aws cloudformation delete-stack --stack-name ${stack}
@@ -21,7 +22,6 @@ if [[ ! -z ${vExistingStacks} ]] ; then
 fi
 
 vKeyFile="./admin_key_pair.pem"
-vStackName="ns-ec2-instances"
 vCftFile="file://cft-ec2-instances.json"
 vIp=$(curl http://checkip.amazonaws.com 2> /dev/null)
 vDefaultVpcId=$(aws ec2 describe-vpcs --filter "Name=isDefault,Values=true" --query Vpcs[0].VpcId --output text)
