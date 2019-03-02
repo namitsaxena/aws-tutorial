@@ -1,0 +1,31 @@
+{
+    "Resources": 
+    {
+        "NSPublicBucket": 
+        {
+          "Type" : "AWS::S3::Bucket",
+          "Properties" : {
+            "BucketName" : "ns-public-bucket",
+            "Tags" : [ {"Key" : "project", "Value" : "tutorial"} ]
+          }
+        }        
+    ,"SampleBucketPolicy" : {
+      "Type" : "AWS::S3::BucketPolicy",
+      "Properties" : {
+        "Bucket" : {"Ref" : "NSPublicBucket"},
+        "PolicyDocument": {
+          "Statement":[
+            {
+              "Action":["s3:GetObject"],
+              "Effect":"Allow",
+              "Resource": { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "NSPublicBucket" } , "/*" ]]},
+              "Principal":"*",
+            }
+          ]
+        }
+      }
+    }
+
+
+   }
+}
