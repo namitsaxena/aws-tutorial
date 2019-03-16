@@ -110,12 +110,52 @@
   * `aws elbv2 describe-load-balancers`
   * `aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text`
 
+#### EBS: 
+* Create Volumes - run the command below twice to create two volumes
+```bash
+aws ec2 create-volume --size 8 --availability-zone us-east-1a --volume-type gp2
+```
+  * Note: the [device naming convention](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/device_naming.html) is not accurate above
+* [RAID Configuration on Linux](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/raid-config.html)
+  * Attach above volumes to any existing EC2 instance (in same AZ)
+  ```bash
+  aws ec2 attach-volume --volume-id vol-026bae9303214da7f --instance-id i-0c3789a0456654efc --device /dev/sdf
+  aws ec2 attach-volume --volume-id vol-0d9bfbff03d8ee917 --instance-id i-0c3789a0456654efc --device /dev/xvdh
+  
+  sudo mdadm --create --verbose /dev/md0 --level=0 --name=MY_RAID --raid-devices=2 /dev/sdf /dev/xvdh
+  sudo cat /proc/mdstat
+  sudo mdadm --detail /dev/md0
 
+  [root@ip-172-31-90-174 ~]# lsblk
+  NAME    MAJ:MIN RM SIZE RO TYPE  MOUNTPOINT
+  xvda    202:0    0   8G  0 disk  
+  └─xvda1 202:1    0   8G  0 part  /
+  xvdf    202:80   0   8G  0 disk  
+  └─md0     9:0    0  16G  0 raid0 
+  xvdh    202:112  0   8G  0 disk  
+  └─md0     9:0    0  16G  0 raid0 
 
+  sudo mkfs.ext4 -L MY_RAID /dev/md0
+  sudo dracut -H -f /boot/initramfs-$(uname -r).img $(uname -r)
+  sudo mkdir -p /mnt/raid
+  sudo mount LABEL=MY_RAID /mnt/raid
 
+  [root@ip-172-31-90-174 ~]# lsblk
+  NAME    MAJ:MIN RM SIZE RO TYPE  MOUNTPOINT
+  xvda    202:0    0   8G  0 disk  
+  └─xvda1 202:1    0   8G  0 part  /
+  xvdf    202:80   0   8G  0 disk  
+  └─md0     9:0    0  16G  0 raid0 /mnt/raid
+  xvdh    202:112  0   8G  0 disk  
+  └─md0     9:0    0  16G  0 raid0 /mnt/raid
 
+  # use
+  [root@ip-172-31-90-174 ~]# cp data.txt /mnt/raid/
 
+  #tear down
+  #detach volume (run for both volumes) - wait for it to detach
+  aws ec2 detach-volume --volume-id vol-0d9bfbff03d8ee917 --force
 
-
-
-
+  #delete volume
+  aws ec2 delete-volume --volume-id vol-026bae9303214da7f
+  ```

@@ -5,21 +5,32 @@
 # If any stack exists, deletes it and exits
 # else creates a new one
 ##########################################
-
-vStackName="ns-ec2-instances"
-
-vExistingStacks=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE --query StackSummaries[*].StackName --output text | tr "\t+" "\n" | grep ${vStackName})
 set -e # Fail on any error, from this point onwards (fails on grep above if not found)
 
-for stack in ${vExistingStacks} ; do
-	echo "Deleting Existing Stack: ${stack}"
-	aws cloudformation delete-stack --stack-name ${stack}
-	aws cloudformation wait stack-delete-complete --stack-name ${stack}
-done
-if [[ ! -z ${vExistingStacks} ]] ; then
-	echo "Existing stacks deleted. Rerun to create new"
-	exit 0
+function deleteStack()
+{
+  stackName="$1"
+  #check if the stack is active
+  vExistingStacks=$(aws cloudformation list-stacks --stack-status-filter CREATE_COMPLETE ROLLBACK_COMPLETE --query StackSummaries[*].StackName --output text)
+  for stack in ${vExistingStacks} ; do
+    if [[ "${stack}" == "${stackName}" ]] ; then
+      echo "Deleting Existing Stack: ${stack}"
+      aws cloudformation delete-stack --stack-name ${stack}
+      aws cloudformation wait stack-delete-complete --stack-name ${stack}
+    fi  
+  done
+}
+
+vCommand="$1"
+
+vStackName="ns-ec2-instances"
+deleteStack ${vStackName}
+
+if [[ "${vCommand}" == "DELETE" ]] ; then
+  echo "Complete. Delete only option specified."
+  exit 0
 fi
+
 
 vKeyFile="./admin_key_pair.pem"
 vCftFile="file://cft-ec2-instances.json"
