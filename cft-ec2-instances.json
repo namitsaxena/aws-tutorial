@@ -39,6 +39,11 @@
         "Type" : "String",
         "Default" : "subnet-c8dc1f82",
         "Description" : "subnet id corresponding to availability zone 'b'. "
+      },
+      "EmailAddressParameter" : {
+        "Type" : "String",
+        "Default" : "your.email@gmail.com",
+        "Description" : "Enter email address for alarm notification"
       }
 
     },       
@@ -122,7 +127,34 @@
           "Port" : 80,
           "Protocol" : "HTTP"
         }
-     }
+     },
+     "AlarmNotificationSNSTopic" : {
+        "Type" : "AWS::SNS::Topic",
+        "Properties" : {
+            "Subscription" : [ {
+                "Endpoint" : { "Ref": "EmailAddressParameter" },
+                "Protocol" : "email"
+            } ]
+        }
+     },     
+     "CPUAlarm" : {
+      "Type" : "AWS::CloudWatch::Alarm",
+      "Properties" : {
+          "AlarmDescription" : "CPU Alarm for ec2 instance in AZ-1",
+          "AlarmActions" : [ { "Ref" : "AlarmNotificationSNSTopic" } ],
+          "MetricName" : "CPUUtilization",
+          "Namespace" : "AWS/EC2",
+          "Statistic" : "Average",
+          "Period" : "300",
+          "EvaluationPeriods" : "1",
+          "Threshold" : "90",
+          "ComparisonOperator" : "GreaterThanThreshold",
+          "Dimensions" : [ {
+            "Name" : "InstanceId",
+            "Value" : { "Ref" : "ec2Instance1" }
+          } ]
+        }
+      }
 
    }
 }     
