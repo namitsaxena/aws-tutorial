@@ -93,7 +93,19 @@
             "InstanceType" : "t2.micro",
             "KeyName" : "admin_key_pair",
             "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
-            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] } 
+            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] },
+            "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+              "#!/bin/bash -xe\n",
+              "sudo yum update -y\n",
+              "sudo yum install -y httpd\n",
+              "sudo service httpd start\n",
+              "sudo chkconfig httpd on\n",
+              "cd /var/www/html\n",
+              "sudo su\n",
+              "echo \"This is the Secondary Website\" > index.html\n"
+
+            ]]}}             
+
          }
       },
       

@@ -69,16 +69,17 @@ ssh -i ${vKeyFile} ec2-user@${vBox1} -o "StrictHostKeyChecking no" << EOF
   echo "This is the Main Website" > index.html
 EOF
 
-echo "Configuring HTTP Server on ${vInstance2}, ${vBox2}"
-ssh -i ${vKeyFile} ec2-user@${vBox2} -o "StrictHostKeyChecking no" << EOF
-  sudo yum update -y
-  sudo yum install -y httpd
-  sudo service httpd start
-  sudo chkconfig httpd on
-  cd /var/www/html
-  sudo su
-  echo "This is the Secondary Website" > index.html
-EOF
+# echo "Configuring HTTP Server on ${vInstance2}, ${vBox2}"
+# ssh -i ${vKeyFile} ec2-user@${vBox2} -o "StrictHostKeyChecking no" << EOF
+#   sudo yum update -y
+#   sudo yum install -y httpd
+#   sudo service httpd start
+#   sudo chkconfig httpd on
+#   cd /var/www/html
+#   sudo su
+#   echo "This is the Secondary Website" > index.html
+# EOF
+echo "HTTP Server on ${vInstance2}, ${vBox2} already configured using user-data script defined within cloud-formation"
 
 # check 
 vBoxText1=$(curl ${vBox1} 2> /dev/null)
@@ -87,9 +88,13 @@ vBoxText2=$(curl ${vBox2} 2> /dev/null)
 echo "${vBox1} --> ${vBoxText1}"
 echo "${vBox2} --> ${vBoxText2}"
 
+# The ELB used to work instantly (fluctuating between the two hosts) before CPU alarm was added.
+# After the alarm it takes a while to fluctuate and work how it would be expected 
+# (it may show only one website, typically seoond one without the alarm, constantly for the first several seconds)
 # get the first loadbalancers public DNS name (assumes only one load balanacer is running)
 vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text)
 echo "ELB output...(will vary between website 1 and 2)"
+sleep 10
 for i in {1..10} ; do
 	vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
 	echo "${vLoadBalancerDNSName} --> ${vELBText}"
