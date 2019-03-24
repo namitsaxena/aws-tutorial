@@ -23,6 +23,7 @@ function deleteStack()
 
 vCommand="$1"
 
+vCFTBucketName="ns-cft-bucket"
 vStackName="ns-ec2-instances"
 deleteStack ${vStackName}
 
@@ -45,8 +46,11 @@ if [[ ! -f ${vKeyFile} ]] ; then
 	exit 1
 fi
 
-echo "Building Stack"
-aws cloudformation create-stack --stack-name ${vStackName} --template-body ${vCftFile} --parameters  ParameterKey=VPCIdParameter,ParameterValue=${vDefaultVpcId} ParameterKey=InboundAllowedCIDRParameter,ParameterValue=${vIp}/32
+echo "Copying CFT resources to s3..."
+aws s3 cp cft-iam-role-ec2-s3-read-only.json s3://${vCFTBucketName}
+echo "Building Stack..."
+aws cloudformation create-stack --stack-name ${vStackName} --template-body ${vCftFile} --parameters  ParameterKey=VPCIdParameter,ParameterValue=${vDefaultVpcId} ParameterKey=InboundAllowedCIDRParameter,ParameterValue=${vIp}/32 --capabilities CAPABILITY_AUTO_EXPAND --capabilities CAPABILITY_NAMED_IAM
+
 echo "waiting for the stack build to complete..."
 aws cloudformation wait stack-create-complete --stack-name ${vStackName}
 
@@ -94,13 +98,39 @@ echo "${vBox2} --> ${vBoxText2}"
 # get the first loadbalancers public DNS name (assumes only one load balanacer is running)
 vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text)
 echo "ELB output...(will vary between website 1 and 2)"
-sleep 10
-for i in {1..10} ; do
+vBox1Count=0
+vBox2Count=0
+echo "Start Time: $(date)"
+for i in {1..600} ; do
 	vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
 	echo "${vLoadBalancerDNSName} --> ${vELBText}"
 	if [[ "${vELBText}" != "${vBoxText1}" && "${vELBText}" != "${vBoxText2}" ]] ; then
 		echo "Unexpected text found. Doesn't match either of the boxes"
 	fi
+  sleep 1
+  
+  # check if both sites have been served
+  if [[ "${vELBText}" == "${vBoxText2}"  ]] ; then
+    vBox2Count=$((vBox2Count + 1))
+  fi
+  if [[ "${vELBText}" == "${vBoxText1}"  ]] ; then
+    vBox1Count=$((vBox1Count + 1))
+  fi
+  if [[ ${vBox1Count} -gt 0 && ${vBox2Count} -gt 0 ]] ; then
+    echo "Both websites being served now!!!. Done!"
+    break
+  fi
 done
+echo "End Time: $(date)"
 
+# checking EC2 role applied, only to Box2
+vBox1S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox1} "aws s3 ls"  2> /dev/null)
+vBox2S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox2} "aws s3 ls"  2> /dev/null)
 
+if [[ "${vBox1S3Output}" != "" ]] ; then
+  echo "Error: Box1, Unexpected S3 output found: ${vBox1S3Output}"
+fi
+
+if [[ "${vBox2S3Output}" == "" ]] ; then
+  echo "Error: Box2, Unexpected No S3 output found: ${vBox2S3Output}"
+fi

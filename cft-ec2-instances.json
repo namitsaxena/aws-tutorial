@@ -94,6 +94,7 @@
             "KeyName" : "admin_key_pair",
             "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
             "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] },
+            "IamInstanceProfile" : { "Ref" : "ListS3BucketsInstanceProfile" },
             "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
               "#!/bin/bash -xe\n",
               "sudo yum update -y\n",
@@ -166,7 +167,23 @@
             "Value" : { "Ref" : "ec2Instance1" }
           } ]
         }
+      },
+      "ec2RoleStack" : {
+         "Type" : "AWS::CloudFormation::Stack",
+         "Properties" : {
+            "TemplateURL" : "https://s3.amazonaws.com/ns-cft-bucket/cft-iam-role-ec2-s3-read-only.json",
+              "TimeoutInMinutes" : "60"
+         }
+      },
+      "ListS3BucketsInstanceProfile" : {
+        "Type" : "AWS::IAM::InstanceProfile",
+        "Properties" : {
+        "Path" : "/",
+        "Roles" : [
+          { "Fn::GetAtt" : [ "ec2RoleStack", "Outputs.ec2S3RoleName" ] }
+        ]
       }
+    }     
 
    }
 }     

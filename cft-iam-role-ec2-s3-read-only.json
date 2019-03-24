@@ -1,0 +1,38 @@
+{
+  "Resources": {
+    "S3ReadOnlyRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [
+                  "ec2.amazonaws.com"
+                ]
+              },
+              "Action": [
+                "sts:AssumeRole"
+              ]
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess",
+        ]
+      }
+    }
+  },
+  "Outputs": {
+     "ec2S3RoleName": {
+        "Description" : "exporting value of the above rolename. export.name can be any unique string",
+        "Export" : { 
+            "Name" : {"Fn::Sub": "${AWS::StackName}-EC2ROLE" }
+        },  
+        "Value": { "Ref" : "S3ReadOnlyRole" }
+    }
+  }
+
+}
