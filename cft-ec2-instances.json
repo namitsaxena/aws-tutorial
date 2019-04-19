@@ -83,7 +83,8 @@
             "InstanceType" : "t2.micro",
             "KeyName" : "admin_key_pair",
             "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
-            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter1" } ] ] } 
+            "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter1" } ] ] },
+            "Tags" : [ { "Key" : "created_using", "Value" : "EC2"}, { "Key" : "used_by", "Value" : "ELB"} ] 
          }
       },
       "ec2Instance2" : {
@@ -94,6 +95,7 @@
             "KeyName" : "admin_key_pair",
             "SecurityGroupIds" : [ { "Ref" : "NSSecurityGroup" } ],
             "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] },
+            "Tags" : [ { "Key" : "created_using", "Value" : "EC2"}, { "Key" : "used_by", "Value" : "ELB"}, { "Key" : "s3_read", "Value" : "true"} ],
             "IamInstanceProfile" : { "Ref" : "ListS3BucketsInstanceProfile" },
             "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
               "#!/bin/bash -xe\n",
@@ -183,7 +185,50 @@
           { "Fn::GetAtt" : [ "ec2RoleStack", "Outputs.ec2S3RoleName" ] }
         ]
       }
-    }     
+    },
+
+    "ec2LaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+          "LaunchTemplateData": {
+              "KeyName": "admin_key_pair",
+              "ImageId": { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
+              "InstanceType": "t2.micro",
+              "SecurityGroupIds":[ { "Ref" : "NSSecurityGroup" } ],
+              "TagSpecifications" : [ {
+                "ResourceType" : "instance",
+                "Tags" : [ { "Key" : "created_using", "Value" : "ec2_launch_template"}, { "Key" : "project", "Value" : "cft_test"} ]
+              } ],
+              "UserData": {
+                  "Fn::Base64": {
+                      "Fn::Join":["", [
+                          "#!/bin/bash \n",
+                          "#!/bin/bash -xe\n",
+                          "sudo yum update -y\n",
+                          "sudo yum install -y httpd\n",
+                          "sudo service httpd start\n",
+                          "sudo chkconfig httpd on\n",
+                          "cd /var/www/html\n",
+                          "sudo su\n",
+                          "echo \"This Website instance is created using Launch Template\" > index.html\n"
+                      ]
+                  ]
+                  }
+              }
+          }
+      }
+    },    
+    "ec2Instance3" : {
+       "Type" : "AWS::EC2::Instance",
+       "Properties" : {
+          "LaunchTemplate" : {
+            "LaunchTemplateId" : { "Ref" : "ec2LaunchTemplate" },
+            "Version" : "1"
+          },
+          "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter1" } ] ] } 
+       }
+    }
+
 
    }
 }     

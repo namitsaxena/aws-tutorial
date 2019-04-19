@@ -54,11 +54,12 @@ aws cloudformation create-stack --stack-name ${vStackName} --template-body ${vCf
 echo "waiting for the stack build to complete..."
 aws cloudformation wait stack-create-complete --stack-name ${vStackName}
 
-vInstanceIds=$(aws ec2 describe-instances --filter "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].InstanceId --output text)
+# filter only the instances used by ELB ; tagged as ELB in CFT
+vInstanceIds=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=ELB" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].InstanceId --output text)
 vInstance1=$(echo $vInstanceIds | awk '{ print $1}')
 vInstance2=$(echo $vInstanceIds | awk '{ print $2}')
 
-vPublicDnsNames=$(aws ec2 describe-instances --filter "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
+vPublicDnsNames=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=ELB" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
 vBox1=$(echo $vPublicDnsNames | awk '{ print $1}')
 vBox2=$(echo $vPublicDnsNames | awk '{ print $2}')
 
@@ -85,11 +86,12 @@ EOF
 # EOF
 echo "HTTP Server on ${vInstance2}, ${vBox2} already configured using user-data script defined within cloud-formation"
 
+sleep 10 # wait for instances to be up so that they can respond to below commands
 # check 
 vBoxText1=$(curl ${vBox1} 2> /dev/null)
-vBoxText2=$(curl ${vBox2} 2> /dev/null)
-
 echo "${vBox1} --> ${vBoxText1}"
+
+vBoxText2=$(curl ${vBox2} 2> /dev/null)
 echo "${vBox2} --> ${vBoxText2}"
 
 # The ELB used to work instantly (fluctuating between the two hosts) before CPU alarm was added.
@@ -110,21 +112,22 @@ for i in {1..600} ; do
   sleep 1
   
   # check if both sites have been served
-  if [[ "${vELBText}" == "${vBoxText2}"  ]] ; then
-    vBox2Count=$((vBox2Count + 1))
-  fi
   if [[ "${vELBText}" == "${vBoxText1}"  ]] ; then
     vBox1Count=$((vBox1Count + 1))
   fi
+  if [[ "${vELBText}" == "${vBoxText2}"  ]] ; then
+    vBox2Count=$((vBox2Count + 1))
+  fi
+  
   if [[ ${vBox1Count} -gt 0 && ${vBox2Count} -gt 0 ]] ; then
-    echo "Both websites being served now!!!. Done!"
+    echo "All websites are serving now!!!. Done!"
     break
   fi
 done
 echo "End Time: $(date)"
 
 # checking EC2 role applied, only to Box2
-vBox1S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox1} "aws s3 ls"  2> /dev/null)
+vBox1S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox1} "aws s3 ls"  2> /dev/null || echo "") # ORing since failure is expected
 vBox2S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox2} "aws s3 ls"  2> /dev/null)
 
 if [[ "${vBox1S3Output}" != "" ]] ; then
@@ -133,4 +136,19 @@ fi
 
 if [[ "${vBox2S3Output}" == "" ]] ; then
   echo "Error: Box2, Unexpected No S3 output found: ${vBox2S3Output}"
+else
+  echo "s3 buckets: ${vBox2S3Output}"  
 fi
+
+# check the instance created using launch template are up
+vLaunchTemplateInstancePDNS=$(aws ec2 describe-instances --filter "Name=tag:created_using,Values=ec2_launch_template" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
+echo "Launch Template Instances: ${vLaunchTemplateInstanceIds}"
+for vInstance in ${vLaunchTemplateInstancePDNS} ; do
+  vBoxText=$(curl ${vInstance}
+  if [[ "${vBoxText}" != "This Website instance is created using Launch Template"  ]] ; then  
+    echo "Incorrect Launch Instance Text found on instance: ${vInstance}, Text: ${vBoxText}" >&2
+  fi  
+done
+
+
+
