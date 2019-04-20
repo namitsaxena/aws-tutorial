@@ -21,6 +21,23 @@ function deleteStack()
   done
 }
 
+function checkS3Access()
+{
+  # checks if S3 is accessible from an instance
+  # i.e. verifies if instance got applied with the S3 role
+  typeset vHostname=$1
+  typeset vKeyFilePath=$2
+  vS3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFilePath} ec2-user@${vHostname} "aws s3 ls"  2> /dev/null || echo "") # ORing since failure is expected
+  if [[ "${vS3Output}" == "" ]] ; then
+    echo "${vHostname} can NOT access S3"
+    return 1
+  else
+    echo "${vHostname} can access s3 buckets:- ${vS3Output}"  
+    return 0
+  fi
+
+}
+
 vCommand="$1"
 
 vCFTBucketName="ns-cft-bucket"
@@ -109,7 +126,7 @@ for i in {1..600} ; do
 	if [[ "${vELBText}" != "${vBoxText1}" && "${vELBText}" != "${vBoxText2}" ]] ; then
 		echo "Unexpected text found. Doesn't match either of the boxes"
 	fi
-  sleep 1
+  sleep 2
   
   # check if both sites have been served
   if [[ "${vELBText}" == "${vBoxText1}"  ]] ; then
@@ -126,29 +143,27 @@ for i in {1..600} ; do
 done
 echo "End Time: $(date)"
 
-# checking EC2 role applied, only to Box2
-vBox1S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox1} "aws s3 ls"  2> /dev/null || echo "") # ORing since failure is expected
-vBox2S3Output=$(ssh -o "StrictHostKeyChecking no" -i ${vKeyFile} ec2-user@${vBox2} "aws s3 ls"  2> /dev/null)
-
-if [[ "${vBox1S3Output}" != "" ]] ; then
-  echo "Error: Box1, Unexpected S3 output found: ${vBox1S3Output}"
+# checking EC2 role(S3 Access) applied, only to Box2
+if checkS3Access ${vBox1} ${vKeyFile} ; then 
+   echo "Error: Box1 can unexpectedly access S3" >&2
 fi
 
-if [[ "${vBox2S3Output}" == "" ]] ; then
-  echo "Error: Box2, Unexpected No S3 output found: ${vBox2S3Output}"
-else
-  echo "s3 buckets: ${vBox2S3Output}"  
+if ! checkS3Access ${vBox2} ${vKeyFile} ; then 
+   echo "Error: Box2 can NOT access S3" >&2
 fi
 
 # check the instance created using launch template are up
 vLaunchTemplateInstancePDNS=$(aws ec2 describe-instances --filter "Name=tag:created_using,Values=ec2_launch_template" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
 echo "Launch Template Instances: ${vLaunchTemplateInstancePDNS}"
 for vInstance in ${vLaunchTemplateInstancePDNS} ; do
-  vBoxText=$(curl ${vInstance})
+  # check website works
+  vBoxText=$(curl ${vInstance} 2> /dev/null)
   if [[ "${vBoxText}" != "This Website instance is created using Launch Template"  ]] ; then  
     echo "Incorrect Launch Instance Text found on instance: ${vInstance}, Text: ${vBoxText}" >&2
-  fi  
+  fi
+  # check EC2 role - instance should be able to access S3  
+  if ! checkS3Access ${vInstance} ${vKeyFile} ; then 
+    echo "Error: ${vInstance} can NOT access S3" >&2
+  fi
 done
-
-
 
