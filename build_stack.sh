@@ -142,9 +142,9 @@ fi
 
 # check the instance created using launch template are up
 vLaunchTemplateInstancePDNS=$(aws ec2 describe-instances --filter "Name=tag:created_using,Values=ec2_launch_template" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
-echo "Launch Template Instances: ${vLaunchTemplateInstanceIds}"
+echo "Launch Template Instances: ${vLaunchTemplateInstancePDNS}"
 for vInstance in ${vLaunchTemplateInstancePDNS} ; do
-  vBoxText=$(curl ${vInstance}
+  vBoxText=$(curl ${vInstance})
   if [[ "${vBoxText}" != "This Website instance is created using Launch Template"  ]] ; then  
     echo "Incorrect Launch Instance Text found on instance: ${vInstance}, Text: ${vBoxText}" >&2
   fi  

@@ -195,6 +195,7 @@
               "ImageId": { "Fn::FindInMap" : [ "RegionMap", { "Ref" : "AWS::Region" }, "AMI" ]},
               "InstanceType": "t2.micro",
               "SecurityGroupIds":[ { "Ref" : "NSSecurityGroup" } ],
+              "IamInstanceProfile" : {"Name" : { "Ref" : "ListS3BucketsInstanceProfile" }},
               "TagSpecifications" : [ {
                 "ResourceType" : "instance",
                 "Tags" : [ { "Key" : "created_using", "Value" : "ec2_launch_template"}, { "Key" : "project", "Value" : "cft_test"} ]
