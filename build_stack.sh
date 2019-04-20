@@ -154,8 +154,8 @@ fi
 
 # check the instance created using launch template are up
 vLaunchTemplateInstancePDNS=$(aws ec2 describe-instances --filter "Name=tag:created_using,Values=ec2_launch_template" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
-echo "Launch Template Instances: ${vLaunchTemplateInstancePDNS}"
 for vInstance in ${vLaunchTemplateInstancePDNS} ; do
+  echo "Checking Launch Template Instance: ${vInstance}"
   # check website works
   vBoxText=$(curl ${vInstance} 2> /dev/null)
   if [[ "${vBoxText}" != "This Website instance is created using Launch Template"  ]] ; then  

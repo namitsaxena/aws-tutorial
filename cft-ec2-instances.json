@@ -228,7 +228,24 @@
           },
           "AvailabilityZone" : { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter1" } ] ] } 
        }
-    }
+    },
+    "asg1":{
+       "Type" : "AWS::AutoScaling::AutoScalingGroup",
+       "Properties" : {
+          "AvailabilityZones" : [ 
+             { "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter1" } ] ] } 
+            ,{ "Fn::Join" : [ "", [ { "Ref" : "AWS::Region" }, { "Ref" : "AvailabilityZoneTypeParameter2" } ] ] } 
+          ],
+          "DesiredCapacity" : "2",
+          "LaunchTemplate" : {
+            "LaunchTemplateId" : { "Ref" : "ec2LaunchTemplate" },
+            "Version" : "1"
+          },
+          "MaxSize" : "4",
+          "MinSize" : "1",
+          "Tags" : [ { "Key" : "used_by", "Value" : "ELB2", "PropagateAtLaunch": true}, { "Key" : "project", "Value" : "cft_test", "PropagateAtLaunch": true} ]
+       }
+    }                  
 
 
    }
