@@ -115,6 +115,8 @@ echo "${vBox2} --> ${vBoxText2}"
 # After the alarm it takes a while to fluctuate and work how it would be expected 
 # (it may show only one website, typically seoond one without the alarm, constantly for the first several seconds)
 # get the first loadbalancers public DNS name (assumes only one load balanacer is running)
+# Update - because of ASG added later, it will also show up now (as unexpected)
+# So far the order seems, Secondary(fastest), ASG, primary(take a while)
 vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text)
 echo "ELB output...(will vary between website 1 and 2)"
 vBox1Count=0
@@ -166,4 +168,19 @@ for vInstance in ${vLaunchTemplateInstancePDNS} ; do
     echo "Error: ${vInstance} can NOT access S3" >&2
   fi
 done
+
+# Since we created a new ASG (asg2, only 1 expected with tag ELB3) and made it join our original ELB, let's check if that's being served as well
+vPublicDnsNamesASG2Box=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=ELB3" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
+vBoxTextASG2=$(curl ${vPublicDnsNamesASG2Box} 2> /dev/null)
+echo "${vPublicDnsNamesASG2Box} --> ${vBoxTextASG2}"
+# check the output of ELB until we see the expected text
+for i in {1..600} ; do
+  vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
+  echo "${vLoadBalancerDNSName} --> ${vELBText}"
+  if [[ "${vELBText}" == "${vBoxTextASG2}"  ]] ; then
+    echo "Found ASG box text."
+    break
+  fi
+  sleep 1
+done  
 
