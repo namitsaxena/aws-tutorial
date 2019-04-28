@@ -111,6 +111,11 @@ echo "${vBox1} --> ${vBoxText1}"
 vBoxText2=$(curl ${vBox2} 2> /dev/null)
 echo "${vBox2} --> ${vBoxText2}"
 
+# Since we created a new ASG (asg2, only 1 expected with tag ELB3) and made it join our original ELB, we need to check if that's being served as well
+vPublicDnsNamesASG2Box=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=ELB3" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
+vBoxText3=$(curl ${vPublicDnsNamesASG2Box} 2> /dev/null)
+echo "${vPublicDnsNamesASG2Box} --> ${vBoxText3}"
+
 # The ELB used to work instantly (fluctuating between the two hosts) before CPU alarm was added.
 # After the alarm it takes a while to fluctuate and work how it would be expected 
 # (it may show only one website, typically seoond one without the alarm, constantly for the first several seconds)
@@ -121,14 +126,15 @@ vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0
 echo "ELB output...(will vary between website 1 and 2)"
 vBox1Count=0
 vBox2Count=0
+vBox3Count=0
 echo "Start Time: $(date)"
 for i in {1..600} ; do
 	vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
 	echo "${vLoadBalancerDNSName} --> ${vELBText}"
-	if [[ "${vELBText}" != "${vBoxText1}" && "${vELBText}" != "${vBoxText2}" ]] ; then
+	if [[ "${vELBText}" != "${vBoxText1}" && "${vELBText}" != "${vBoxText2}" && "${vELBText}" != "${vBoxText3}" ]] ; then
 		echo "Unexpected text found. Doesn't match either of the boxes"
 	fi
-  sleep 2
+  sleep 3
   
   # check if both sites have been served
   if [[ "${vELBText}" == "${vBoxText1}"  ]] ; then
@@ -137,8 +143,11 @@ for i in {1..600} ; do
   if [[ "${vELBText}" == "${vBoxText2}"  ]] ; then
     vBox2Count=$((vBox2Count + 1))
   fi
+  if [[ "${vELBText}" == "${vBoxText3}"  ]] ; then
+    vBox3Count=$((vBox3Count + 1))
+  fi
   
-  if [[ ${vBox1Count} -gt 0 && ${vBox2Count} -gt 0 ]] ; then
+  if [[ ${vBox1Count} -gt 0 && ${vBox2Count} -gt 0 && ${vBox3Count} -gt 0 ]] ; then
     echo "All websites are serving now!!!. Done!"
     break
   fi
@@ -168,19 +177,3 @@ for vInstance in ${vLaunchTemplateInstancePDNS} ; do
     echo "Error: ${vInstance} can NOT access S3" >&2
   fi
 done
-
-# Since we created a new ASG (asg2, only 1 expected with tag ELB3) and made it join our original ELB, let's check if that's being served as well
-vPublicDnsNamesASG2Box=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=ELB3" "Name=instance-state-name,Values=running" --query Reservations[*].Instances[*].PublicDnsName --output text)
-vBoxTextASG2=$(curl ${vPublicDnsNamesASG2Box} 2> /dev/null)
-echo "${vPublicDnsNamesASG2Box} --> ${vBoxTextASG2}"
-# check the output of ELB until we see the expected text
-for i in {1..600} ; do
-  vELBText=$(curl ${vLoadBalancerDNSName} 2> /dev/null)
-  echo "${vLoadBalancerDNSName} --> ${vELBText}"
-  if [[ "${vELBText}" == "${vBoxTextASG2}"  ]] ; then
-    echo "Found ASG box text."
-    break
-  fi
-  sleep 1
-done  
-
