@@ -35,6 +35,23 @@ function checkS3Access()
     echo "${vHostname} can access s3 buckets:- ${vS3Output}"  
     return 0
   fi
+}
+
+function configureHTTPServer()
+{
+  typeset vHost=$1
+  typeset vKeyFilePath=$2
+  typeset vWebText=$3
+
+  ssh -i ${vKeyFilePath} ec2-user@${vHost} -o "StrictHostKeyChecking no" << EOF
+    sudo yum update -y
+    sudo yum install -y httpd
+    sudo service httpd start
+    sudo chkconfig httpd on
+    cd /var/www/html
+    sudo su
+    echo "${vWebText}" > index.html
+EOF
 
 }
 
@@ -80,27 +97,18 @@ vPublicDnsNames=$(aws ec2 describe-instances --filter "Name=tag:used_by,Values=E
 vBox1=$(echo $vPublicDnsNames | awk '{ print $1}')
 vBox2=$(echo $vPublicDnsNames | awk '{ print $2}')
 
+# double check if wrong instance(already configured) showed up by any chance
+vBoxText1=$(curl ${vBox1} 2> /dev/null || true)
+if [[ ! -z "${vBoxText1}" ]] ; then
+  echo "Box 1 (${vInstance1} -- ${vBox1}) already configured (Text:  ${vBoxText1}). Incorrect Box Received. Swapping Box configuration..." >&2
+  vBoxTemp=${vBox1}
+  vBox1=${vBox2}
+  vBox2=${vBoxTemp}
+fi  
+    
 echo "Configuring HTTP Server on ${vInstance1}, ${vBox1}"
-ssh -i ${vKeyFile} ec2-user@${vBox1} -o "StrictHostKeyChecking no" << EOF
-  sudo yum update -y
-  sudo yum install -y httpd
-  sudo service httpd start
-  sudo chkconfig httpd on
-  cd /var/www/html
-  sudo su
-  echo "This is the Main Website" > index.html
-EOF
+configureHTTPServer "${vBox1}" "${vKeyFile}" "This is the Main Website"
 
-# echo "Configuring HTTP Server on ${vInstance2}, ${vBox2}"
-# ssh -i ${vKeyFile} ec2-user@${vBox2} -o "StrictHostKeyChecking no" << EOF
-#   sudo yum update -y
-#   sudo yum install -y httpd
-#   sudo service httpd start
-#   sudo chkconfig httpd on
-#   cd /var/www/html
-#   sudo su
-#   echo "This is the Secondary Website" > index.html
-# EOF
 echo "HTTP Server on ${vInstance2}, ${vBox2} already configured using user-data script defined within cloud-formation"
 
 sleep 10 # wait for instances to be up so that they can respond to below commands
@@ -123,7 +131,7 @@ echo "${vPublicDnsNamesASG2Box} --> ${vBoxText3}"
 # Update - because of ASG added later, it will also show up now (as unexpected)
 # So far the order seems, Secondary(fastest), ASG, primary(take a while)
 vLoadBalancerDNSName=$(aws elbv2 describe-load-balancers --query LoadBalancers[0].DNSName --output text)
-echo "ELB output...(will vary between website 1 and 2)"
+echo "ELB output...(will vary between the 3 websites)"
 vBox1Count=0
 vBox2Count=0
 vBox3Count=0
@@ -168,7 +176,7 @@ vLaunchTemplateInstancePDNS=$(aws ec2 describe-instances --filter "Name=tag:crea
 for vInstance in ${vLaunchTemplateInstancePDNS} ; do
   echo "Checking Launch Template Instance: ${vInstance}"
   # check website works
-  vBoxText=$(curl ${vInstance} 2> /dev/null)
+  vBoxText=$(curl ${vInstance} 2> /dev/null || true)
   if [[ "${vBoxText}" != "This Website instance is created using Launch Template"  ]] ; then  
     echo "Incorrect Launch Instance Text found on instance: ${vInstance}, Text: ${vBoxText}" >&2
   fi
