@@ -7,6 +7,14 @@ Description: 'Network setup'
 # aws cloudformation wait stack-create-complete --stack-name ns-network-stack
 # aws cloudformation delete-stack  --stack-name ns-network-stack
 # aws cloudformation wait stack-delete-complete --stack-name ns-network-stack
+# ---------------------------------------------------------------------------------------------
+# Creates a VPC
+#  - with public and private subnets
+#  - creates an internet gateway
+#  - public subnets are associated with public route table, which includes a route to internet gateway(IGW)
+#  - private subnets are associated with private route table and private NACL 
+#  - creates a NAT gateway which is associated with one of the public subnets (ie connects to IGW)
+#    - private route table gets a route to NAT Gateway  
 ############################################################################################################
 
 Resources:
@@ -90,6 +98,8 @@ Resources:
   ########################
   # Routing Tables      
   ########################
+  # will create 2 route tables
+  # in addition to main route table
   routeTablePublic:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -99,6 +109,17 @@ Resources:
       - Key: Name
         Value: ns-cft-public        
 
+  # Route to Internet Gateway
+  # creates a default route(any unmatched ip) to IGW
+  routePublicSubnetDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachInternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref routeTablePublic
+      GatewayId: !Ref nsInternetGateway
+
+  # Private Route Table
   routeTablePrivate:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -106,11 +127,16 @@ Resources:
         Ref: nsVPC
       Tags:
       - Key: Name
-        Value: ns-cft-private       
+        Value: ns-cft-private
 
   ########################
   # Subnets       
   ########################
+  # 2 Public Subnets - 1a and 1b
+  #  - associated with public route table (and defaut NACL which is public)
+  # Remaining 4 are private
+
+  # PUBLIC
   Subnet1a:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -120,10 +146,11 @@ Resources:
       AvailabilityZone: "us-east-1a"
       CidrBlock: 10.1.1.0/24
       #Ipv6CidrBlock: !Select [1, !Cidr [!Select [0, !GetAtt 'nsVPC.Ipv6CidrBlocks'], 256, 64]]
-      #MapPublicIpOnLaunch: 'false'
+      MapPublicIpOnLaunch: 'true'
       Tags:
         - Key: Name
-          Value: ns-1a
+          Value: ns-cft-1a
+
   Subnet1b:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -131,9 +158,12 @@ Resources:
         Ref: nsVPC
       AvailabilityZone: "us-east-1b"
       CidrBlock: 10.1.2.0/24
+      MapPublicIpOnLaunch: 'true'
       Tags:
         - Key: Name
-          Value: ns-1b
+          Value: ns-cft-1b
+
+  # PRIVATE
   Subnet1c:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -143,7 +173,7 @@ Resources:
       CidrBlock: 10.1.3.0/24
       Tags:
         - Key: Name
-          Value: ns-1c
+          Value: ns-cft-1c
   Subnet1d:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -153,7 +183,7 @@ Resources:
       CidrBlock: 10.1.4.0/24
       Tags:
         - Key: Name
-          Value: ns-1d
+          Value: ns-cft-1d
   Subnet1e:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -163,7 +193,7 @@ Resources:
       CidrBlock: 10.1.5.0/24
       Tags:
         - Key: Name
-          Value: ns-1e
+          Value: ns-cft-1e
   Subnet1f:    
     Type: AWS::EC2::Subnet
     Properties: 
@@ -173,4 +203,113 @@ Resources:
       CidrBlock: 10.1.6.0/24
       Tags:
         - Key: Name
-          Value: ns-1f
+          Value: ns-cft-1f
+
+  # Associate Subnets with Route Tables
+
+  # subnet-1a-b associate with public route table
+  publicSubnetRouteTableAssociation1a:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePublic
+      SubnetId: !Ref Subnet1a
+
+  publicSubnetRouteTableAssociation1b:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePublic
+      SubnetId: !Ref Subnet1b
+
+  # subnet-1c-f associate with private route table
+  privateSubnetRouteTableAssociation1c:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrivate
+      SubnetId: !Ref Subnet1c
+
+  privateSubnetRouteTableAssociation1d:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrivate
+      SubnetId: !Ref Subnet1d
+
+  privateSubnetRouteTableAssociation1e:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrivate
+      SubnetId: !Ref Subnet1e
+
+  privateSubnetRouteTableAssociation1f:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref routeTablePrivate
+      SubnetId: !Ref Subnet1f
+
+  # Associate private subnets with NACL 
+  privateSubnetNACLAssociation1c:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref privateNetworkAcl
+      SubnetId: !Ref Subnet1c
+
+  privateSubnetNACLAssociation1d:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref privateNetworkAcl
+      SubnetId: !Ref Subnet1d
+
+  privateSubnetNACLAssociation1e:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref privateNetworkAcl
+      SubnetId: !Ref Subnet1e
+
+  privateSubnetNACLAssociation1f:
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId: !Ref privateNetworkAcl
+      SubnetId: !Ref Subnet1f
+
+  ########################
+  # NAT Gateway 
+  # - charged
+  ########################  
+
+  # create a NAT Gateway and associate with
+  # a public subnet and an Elastic IP
+  nsNATGateway:
+     Type: AWS::EC2::NatGateway
+     Properties:
+        AllocationId:
+           Fn::GetAtt:
+           - NATElasticIP
+           - AllocationId
+        SubnetId:
+           Ref: Subnet1a
+        Tags:
+        - Key: Name
+          Value: ns-cft-NAT
+
+  NATElasticIP:
+     Type: AWS::EC2::EIP
+     Properties:
+        Domain: nsVPC
+
+  # AttachVpnGateway:
+  #   Type: AWS::EC2::VPCGatewayAttachment
+  #   Properties:
+  #     VpcId:
+  #        Ref: nsVPC
+  #     VpnGatewayId:
+  #        Ref: nsNATGateway  
+
+  # Add a route to the private route table
+  # to forward all default traffic to NAT gateway
+  Route:
+     Type: AWS::EC2::Route
+     Properties:
+        RouteTableId:
+           Ref: routeTablePrivate
+        DestinationCidrBlock: 0.0.0.0/0
+        NatGatewayId:
+           Ref: nsNATGateway  
