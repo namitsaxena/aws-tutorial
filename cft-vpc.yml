@@ -15,6 +15,14 @@ Description: 'Network setup'
 #  - private subnets are associated with private route table and private NACL 
 #  - creates a NAT gateway which is associated with one of the public subnets (ie connects to IGW)
 #    - private route table gets a route to NAT Gateway  
+#  - You can ssh into any instance subnet (even from one subnet to another using public or private ip address)
+#  - NAT Gateway Setup
+#    - Requires a public ip address and should be in a public subnet (ie with Internet Gateway)
+#    - In our case the NAT Gateway is in public subnet 1a and shared/used by private subnets 1c-1f
+#  - Testing: when creating instances, security-groups with correct permissions will be needed as well
+#    - curl http://checkip.amazonaws.com/
+#    - sudo yum install -y httpd
+#    - sudo yum update -y
 ############################################################################################################
 
 Resources:
@@ -25,8 +33,8 @@ Resources:
     Type: AWS::EC2::VPC
     Properties: 
       CidrBlock: 10.1.0.0/20
-      EnableDnsHostnames: 'false'
-      EnableDnsSupport: 'false'
+      EnableDnsHostnames: 'true'
+      EnableDnsSupport: 'true'
       InstanceTenancy: default
       Tags:
         - Key: Name
@@ -70,9 +78,9 @@ Resources:
        - Key: Name
          Value: ns-cft-private
 
-  # allow inbound only from within the network~
+  # allow all traffic from within the vpc network~
   # default - deny all is already in effect
-  # privateNetworkAclEntryInbound:
+  # privateNetworkAclEntryInboundAllowWithinVPC:
   #   Type: AWS::EC2::NetworkAclEntry
   #   Properties:
   #      NetworkAclId:
@@ -82,6 +90,55 @@ Resources:
   #      RuleAction: allow
   #      Egress: 'false'
   #      CidrBlock: 10.1.0.0/20
+
+  # All ICMP from within VPC network
+  privateNetworkAclEntryInboundAllowICMP:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+       NetworkAclId:
+          Ref: privateNetworkAcl
+       RuleNumber: '105'
+       Protocol: "1"
+       RuleAction: allow
+       Egress: 'false'
+       CidrBlock: 10.1.0.0/20
+       Icmp:
+          Code: "-1"
+          Type: "-1"       
+       # PortRange:
+       #      From: '22'
+       #      To: '22'       
+
+  # All SSH from within VPC network
+  privateNetworkAclEntryInboundAllowSSH:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+       NetworkAclId:
+          Ref: privateNetworkAcl
+       RuleNumber: '106'
+       Protocol: "6"
+       RuleAction: allow
+       Egress: 'false'
+       CidrBlock: 10.1.0.0/20
+       PortRange:
+            From: '22'
+            To: '22'       
+
+  # Allow all inbound TCP ephemeral ports
+  # required for curl and yum ie http/https responses
+  privateNetworkAclEntryInboundAllowTCPEphemeral:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+       NetworkAclId:
+          Ref: privateNetworkAcl
+       RuleNumber: '110'
+       Protocol: "6"
+       RuleAction: allow
+       Egress: 'false'
+       CidrBlock: 0.0.0.0/0
+       PortRange:
+            From: '32768'
+            To: '65535'
 
   # allow all outbound
   privateNetworkAclEntryOutbound:
