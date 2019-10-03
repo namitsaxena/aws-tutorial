@@ -137,7 +137,7 @@ Resources:
        Egress: 'false'
        CidrBlock: 0.0.0.0/0
        PortRange:
-            From: '32768'
+            From: '1024'
             To: '65535'
 
   # allow all outbound
